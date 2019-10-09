@@ -4,6 +4,7 @@
 
 - [Swift](#Swift)
   - [Struct](#Struct)
+  - [Tuple](#Tuple)
   - [Class](#Class)
   - [Protocol](#Protocol)
   - [Enum](#Enum)
@@ -29,29 +30,56 @@ struct StructValue {
 }
 
 var structValue = StructValue()
-let structValuePointer = withUnsafePointer(to: &structValue) { (pointer) -> UnsafeMutableRawPointer in
-    UnsafeMutableRawPointer(OpaquePointer(pointer))
-}
+let structValuePointer = withUnsafePointer(to: &structValue) { UnsafeMutableRawPointer(mutating: $0) }
 structValuePointer.advanced(by: 2).assumingMemoryBound(to: Int16.self).initialize(to: 99)
 
 // structValue.b = 99
+```
+
+### [Tuple](https://github.com/TannerJin/Swift-MemoryLayout/blob/master/Swift/Tuple.swift)
+
+```swift
+typealias TupleValue = (Int8, Int32, String)
+
+struct StructValue {
+    var a: Int8 = 4
+    var b: Int32 = 5
+    var c: String = "SwiftTuple"
+}
+
+let structValue = StructValue()
+let tupleValue = unsafeBitCast(structValue, to: TupleValue.self)
+print(tupleValue.1)
+
+// print 5    (structValue.b)
+
+// if TupleValue = (Int8, Int8, String) =>  MemoryLayout of TupleValue !=  MemoryLayout of StructValue
 ```
 
 ### [Class](https://github.com/TannerJin/Swift-MemoryLayout/blob/master/Swift/Class.swift)   
 
 ```swift
 class A {
-  var a = 666
+    var a = 666
 }
 
 let a1 = A()
 unowned let unowned_a = a1
 let a2 = a1
-let a3 = a2
 
-let strongRefCount = StrongRefCount(a1)
-let unownedRefCount = UnownedRefCount(a1)
-let hasWeakRef = hasWeakRefCount(a1)
+weak var weak_a = a1
+weak var weak_a2 = a1
+
+unowned let unowned_a2 = a1
+
+let a3 = a2
+let a4 = a2
+weak var weak_a3 = a1
+unowned let unowned_a3 = a1
+
+print(UnownedRefCount(a1))
+print(WeakRefCount(a1)!)
+print(StrongRefCount(a2))
 ```
 
 ### [Protocol](https://github.com/TannerJin/Swift-MemoryLayout/blob/master/Swift/Protocol.swift)
@@ -73,17 +101,15 @@ struct StructValue: SwiftProtocol {
 }
 
 var Protocol: SwiftProtocol = StructValue()
-let protocol_pointer = withUnsafePointer(to: &Protocol) { (pointer) -> UnsafeMutableRawPointer in
-    UnsafeMutableRawPointer(OpaquePointer(pointer))
-}
+let protocol_pointer = withUnsafePointer(to: &Protocol) { UnsafeMutableRawPointer(mutating: $0) }
 
 let witness_table_pointer_value = protocol_pointer.advanced(by: 32).assumingMemoryBound(to: UInt.self).pointee
 let witness_table_pointer = UnsafeMutablePointer<UnsafeMutableRawPointer>.init(bitPattern: witness_table_pointer_value)
 
-typealias FooMethod = @convention(thin) ()->Void
+typealias Foo2Method = @convention(thin) ()->Void    // really method => (StructValue) -> ()
 
-let foo2_pointer = unsafeBitCast(witness_table_pointer!.advanced(by: 2).pointee, to: FooMethod.self)
-foo2_pointer()
+let witness_foo2_pointer = unsafeBitCast(witness_table_pointer!.advanced(by: 2).pointee, to: Foo2Method.self)
+witness_foo2_pointer()
 
 // print foo2
 ```
@@ -101,9 +127,7 @@ enum EnumValue {
 }
 
 var enumC = EnumValue.c(8)
-let enumCPointer = withUnsafePointer(to: &enumC) { (pointer) -> UnsafeMutableRawPointer in
-     UnsafeMutableRawPointer(OpaquePointer(pointer))
-}
+let enumCPointer = withUnsafePointer(to: &enumC) { UnsafeMutableRawPointer(mutating: $0) }
 enumCPointer.advanced(by: 16).assumingMemoryBound(to: Int8.self).initialize(to: 0x02)
 
 // enumC = EnumValue.f(8)
@@ -125,9 +149,10 @@ boolPointer.initialize(to: -10)
 ### [Optional](https://github.com/TannerJin/Swift-MemoryLayout/blob/master/SwiftCore/Optional.swift)
 
 ```swift
-var optional: Int16?
+var optional: Int16?      // 0x00 0x00 0x01
 var optionalPointer = optional.valuePointer
-optionalPointer.assumingMemoryBound(to: Int16.self).initialize(to: 99)
+optionalPointer.assumingMemoryBound(to: Int16.self).initialize(to: 99)  // 0x63 0x00 0x01
+optionalPointer.advanced(by: MemoryLayout<Int16>.size).assumingMemoryBound(to: UInt8.self).initialize(to: 0x00)  // 0x63 0x00 0x00
 
 // optional = 99
 ```
