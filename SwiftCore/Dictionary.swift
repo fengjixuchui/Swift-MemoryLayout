@@ -30,14 +30,56 @@ public extension Dictionary {
 //    |   var _extra: Int16                                                   |
 //    |   var _age: Int32                                                     |
 //    |   var _seed: Int                                                      |
-//    |   var _rawKeys: UnsafeMutableRawPointer       // 48 byte offset       |
-//    |   var _rawValues: UnsafeMutableRawPointer     // 56 byte offset       |
-//    |   var _bucketCount: Int                                               |
-//    |   var _metadata: UnsafeMutablePointer<_HashTable.Word>                |
-//    |   var _hashTable: _HashTable                                          |
-//    +-----------------------------------------------------------------------+
+//    |   var _rawKeys: UnsafeMutableRawPointer       // 48 byte offset      -----------------------+
+//    |   var _rawValues: UnsafeMutableRawPointer     // 56 byte offset      -----------------------+---------------+
+//    |   var _bucketCount: Int                                               |                     |               |
+//    |   var _metadata(get): UnsafeMutablePointer<_HashTable.Word>          -----------------+     |               |
+//    |   var _hashTable(get): _HashTable                                     |               |     |               |
+//    +-----------------------------------------------------------------------+               |     |               |
+//                                                                                            |     |               |
+//                                                                                            |     |               |
+//                                                                                            |     |               |
+/*    Dictionary                                                                              |     |               |
+          |                                                                                   |     |               |
+          V                                                                                   |     |               |
+      +-------------------------------------+                                                 |     |               |
+      |    RawDictionaryStorage (MetaData)  |                                                 |     |               |
+      |                                     |                                                 |     |               |
+      +-------------------------------------+  <----------------------------------------------+     |               |
+      |         Word (Hash Offset)          |                                                       |               |
+      |                                     |                                                       |               |
+      +-------------------------------------+  <----------------------------------------------------+               |
+      |         Keys                        |                                                                       |
+      |                                     |                                                                       |
+      +-------------------------------------+  <--------------------------------------------------------------------+
+      |         Values                      |
+      |                                     |
+      +-------------------------------------+
+     
+      Word (Hash Offset)
+      |
+      V                     64(32) bits
+                     /                     \
+      if Word[0] = 0b1000000...0000000000100   =>  Keys[2] != nil and Keys[63] != nil
+      if Word[1] = 0b1000000...0000000000101   =>  Keys[64] != nil and Keys[66] != nil and ...
+     
+set:    var bitOffset = hash(NewKey) & bucketCount
+        when bitOffset of Word is occupied(bit is 1) {
+            bitOffset += 1
+        }
+     
+        set the bit of Word with bitOffset to 1
+        Keys[bitOffset] = NewKey
+        Values[bitOffset] = NewValue
+        
+     
+get:    var bitOffset = hash(Key) & bucketCount
+        when Keys[bitOffset] != Key {
+             bitOffset += 1
+        }
+        return Values[bitOffset]
+ */
     
-//    emty dictionary: _rawKeys => 0x0000000000000001; _rawValues => 0x0000000000000001
     
     
     // count value of address
